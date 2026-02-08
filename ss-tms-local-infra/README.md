@@ -3,144 +3,181 @@
 Local, cloud-neutral infrastructure stack for the **ss-tms** microservices ecosystem.
 
 This repository provides a **single Docker-based environment** that all TMS microservices connect to during development.
-It mirrors production architecture while remaining portable across **AWS, GCP, and Azure**.
+It mirrors a real production architecture while remaining portable across **AWS, GCP, and Azure**.
 
-> Philosophy: **one local infra stack, many services**
 
 ---
 
 ## What this repo is for
-- Run shared dependencies locally (databases, storage, cache)
+
+- Run **shared dependencies locally** (databases, storage, cache, messaging)
 - Avoid duplicating Docker setup in every microservice repo
 - Keep service repos focused on **application code only**
-- Stay cloud-agnostic from day one
+- Enforce consistent infra patterns across all services
+- Stay **cloud-agnostic** from day one
 
-This repo is **development-only**. In production, each dependency is replaced with its managed cloud equivalent.
+This repo is **development-only**.  
 
 ---
 
 ## Included services
 
-| Service     | Purpose | Cloud replacement |
-|------------|--------|------------------|
-| PostgreSQL | Primary relational database (multi-tenant) | RDS / Cloud SQL / Azure PostgreSQL |
-| MongoDB    | Event/timeline & flexible document store | MongoDB Atlas |
-| MinIO      | S3-compatible object storage (PDFs, images) | AWS S3 / GCS / Azure Blob |
-| Redis      | Cache, locks, background jobs | ElastiCache / Memorystore / Azure Cache |
-| Docker     | Orchestration layer | Kubernetes / App Service / Cloud Run |
+| Service | Purpose | Cloud replacement |
+|------|------|------|
+| PostgreSQL | Primary relational database (multi-tenant core data) | RDS / Cloud SQL / Azure PostgreSQL |
+| MongoDB | Events, timelines, flexible documents | MongoDB Atlas |
+| MinIO | S3-compatible object storage (PDFs, images, inspections) | AWS S3 / GCS / Azure Blob |
+| Redis | Cache, locks, rate limiting, background jobs | ElastiCache / Memorystore / Azure Cache |
+| RabbitMQ | Async workflows & integrations | Amazon MQ / Cloud Pub/Sub / Azure Service Bus |
+| Mailpit | Local SMTP + inbox for email testing | SES / SendGrid / Mailgun |
+| Vault (dev mode) | Local secrets management | AWS Secrets Manager / GCP Secret Manager / Azure Key Vault |
+| Prometheus | Metrics store | Managed Prometheus |
+| Grafana | Metrics dashboards | Managed Grafana |
+| Jaeger | Distributed tracing UI | Cloud tracing |
+| Traefik | Local gateway / reverse proxy | API Gateway / Ingress |
+| Docker Compose | Local orchestration | Kubernetes / App Service / Cloud Run |
 
 ---
 
-## Quick start
+## Architecture intent
 
-### 1) Prerequisites
+- **Postgres** = source of truth (equipment, drivers, loads, tenants)
+- **MongoDB** = append-only / flexible data (events, GPS, provider payloads)
+- **MinIO** = documents & media (never store blobs in Postgres)
+- **Redis** = fast, disposable state
+- **RabbitMQ** = async boundaries between services
+- **Vault** = secrets abstraction (env-first, Vault optional)
+- **Observability** = built in from day one, not bolted on later
+
+---
+
+## Prerequisites
+
 - Docker Desktop
-- JetBrains DataGrip (recommended)
-- MongoDB Compass (optional, but nice)
+- JetBrains **DataGrip** (recommended)
+- MongoDB Compass (optional)
 
 ---
 
-### 2) Start the infrastructure stack
+## Running the stack
 
-```bash
-docker compose --env-file .env up -d
-```
+### Start core infrastructure (recommended default)
+xdocker compose -f compose.yaml \
+  --profile core \
+  --profile mail \
+  --profile broker \
+  --profile obs \
+  --profile gateway \
+  --profile secrets \
+  up -d --build
 
-Verify:
-```bash
-docker compose ps
-```
+Core includes:
+- Postgres
+- MongoDB
+- MinIO (+ bucket init)
+- Redis
 
-To stop:
-```bash
+---
+
+### Start optional components when needed
+
+Mail (email testing):
+docker compose --env-file .env --profile mail up -d
+
+Message broker:
+docker compose --env-file .env --profile broker up -d
+
+Observability:
+docker compose --env-file .env --profile obs up -d
+
+Gateway:
+docker compose --env-file .env --profile gateway up -d
+
+Secrets (Vault dev mode):
+docker compose --env-file .env --profile secrets up -d
+
+---
+
+### Stop everything
 docker compose down
-```
 
-To **reset all local data** (destructive):
-```bash
+### Reset **all local data** (destructive)
 docker compose down -v
-```
 
 ---
 
-## Connection details (for microservices & tools)
+## Profiles summary
+
+| Profile | What it runs |
+|------|------|
+| `core` | Postgres, MongoDB, MinIO, Redis |
+| `mail` | Mailpit |
+| `broker` | RabbitMQ |
+| `obs` | Prometheus, Grafana, Jaeger |
+| `gateway` | Traefik |
+| `secrets` | Vault (dev mode) |
+
+---
+
+## Connection details
 
 ### PostgreSQL
-From your **host machine** (DataGrip, local dotnet run):
 
-```
-Host: localhost
-Port: 5432
-Database: tms
-User: tms
-Password: tms_local_pw
-```
-
-.NET connection string:
-```
-Host=localhost;Port=5432;Database=tms;Username=tms;Password=tms_local_pw
-```
-
-From **another Docker container**:
-```
-Host=postgres
-Port=5432
-Database=tms
-User=tms
-Password=tms_local_pw
-```
+- Host: localhost
+- Port: 5432
+- Database: tms
+- User: tms
+- Password: tms_local_pw
+- Host=localhost;Port=5432;Database=tms;Username=tms;Password=tms_local_pw
+- Docker Host=postgres;Port=5432;Database=tms;Username=tms;Password=tms_local_pw
 
 ---
 
 ### MongoDB
-Connection string (host machine):
 
-```
-mongodb://root:mongo_local_pw@localhost:27017
-```
+- Host machine: mongodb://root:mongo_local_pw@localhost:27017
+- Docker:mongodb://root:mongo_local_pw@mongo:27017
 
-Inside Docker:
-```
-mongodb://root:mongo_local_pw@mongo:27017
-```
 ---
 
-### MinIO (S3-compatible storage)
-- API endpoint: http://localhost:9000
-- Console UI: http://localhost:9001
+### MinIO
+
+- API: http://localhost:9000
+- Console: http://localhost:9001
 
 Credentials:
-```
-Access Key: minioadmin
-Secret Key: minioadmin_pw
-```
+- Access key: minioadmin
+- Secret key: minioadmin_pw
 
-Default bucket:
-```
-tms-files
-```
-
-S3-style configuration for services:
-```
-Endpoint: http://localhost:9000
-Bucket: tms-files
-ForcePathStyle: true
-```
-
-Inside Docker:
-```
-Endpoint: http://minio:9000
-```
-
+Service configuration:
+- Endpoint: http://localhost:9000
+- Bucket: tms-files
+- ForcePathStyle: true
+- Docker Endpoint: http://minio:9000
 ---
 
 ### Redis
-Host machine:
-```
-localhost:6379
-```
 
-Inside Docker:
-```
-redis:6379
-```
+- localhost:6379
+- Inside Docker: redis:6379
+
+---
+
+### Mailpit (email testing)
+
+- UI: http://localhost:8025
+- SMTP: localhost:1025
+- No auth, no TLS (local only)
+
+---
+
+### Vault (dev mode)
+
+- Address: http://localhost:8200
+---
+
+### Observability
+
+- Jaeger UI: http://localhost:16686
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 
