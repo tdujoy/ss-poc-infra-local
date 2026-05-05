@@ -1,8 +1,8 @@
-# ss-tms-local-infra
+# ss-poc-local-infra
 
-Local, cloud-neutral infrastructure stack for the **ss-tms** microservices ecosystem.
+Local, cloud-neutral infrastructure stack for the **ss-poc** microservices ecosystem.
 
-This repository provides a **single Docker-based environment** that all TMS microservices connect to during development.
+This repository provides a **single Docker-based environment** that all ss-poc microservices connect to during development.
 It mirrors a real production architecture while remaining portable across **AWS, GCP, and Azure**.
 
 
@@ -125,11 +125,11 @@ docker compose down -v
 
 - Host: localhost
 - Port: 5432
-- Database: tms
-- User: tms
-- Password: tms_local_pw
-- Host=localhost;Port=5432;Database=tms;Username=tms;Password=tms_local_pw
-- Docker Host=postgres;Port=5432;Database=tms;Username=tms;Password=tms_local_pw
+- Database: poc
+- User: poc
+- Password: poc_local_pw
+- Host=localhost;Port=5432;Database=poc;Username=poc;Password=poc_local_pw
+- Docker Host=postgres;Port=5432;Database=poc;Username=poc;Password=poc_local_pw
 
 ---
 
@@ -151,7 +151,7 @@ Credentials:
 
 Service configuration:
 - Endpoint: http://localhost:9000
-- Bucket: tms-files
+- Bucket: poc-files
 - ForcePathStyle: true
 - Docker Endpoint: http://minio:9000
 ---

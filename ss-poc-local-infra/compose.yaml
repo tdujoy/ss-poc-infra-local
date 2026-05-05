@@ -1,8 +1,7 @@
 services:
-
   postgres:
     image: postgres:16
-    container_name: ss-tms-db-postgres
+    container_name: ss-local-db-postgres
     restart: unless-stopped
     profiles: ["core"]
     environment:
@@ -12,16 +11,18 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
-      - ss_tms_pg_data:/var/lib/postgresql/data
+      - ss_poc_pg_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 20
+    networks:
+      - ss_poc_shared
 
   mongo:
     image: mongo:7
-    container_name: ss-tms-db-mongo
+    container_name: ss-local-db-mongo
     restart: unless-stopped
     profiles: ["core"]
     environment:
@@ -30,16 +31,18 @@ services:
     ports:
       - "${MONGO_PORT}:27017"
     volumes:
-      - ss_tms_mongo_data:/data/db
+      - ss_poc_mongo_data:/data/db
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 20
+    networks:
+      - ss_poc_shared
 
   minio:
     image: minio/minio:latest
-    container_name: ss-tms-os-minio
+    container_name: ss-local-os-minio
     restart: unless-stopped
     profiles: ["core"]
     environment:
@@ -50,11 +53,13 @@ services:
       - "${MINIO_API_PORT}:9000"
       - "${MINIO_CONSOLE_PORT}:9001"
     volumes:
-      - ss_tms_minio_data:/data
+      - ss_poc_minio_data:/data
+    networks:
+      - ss_poc_shared
 
   minio-init:
     image: minio/mc:latest
-    container_name: ss-tms-os-minio-init
+    container_name: ss-local-os-minio-init
     profiles: ["core"]
     depends_on:
       - minio
@@ -68,20 +73,24 @@ services:
       mc mb -p local/$$MINIO_DEFAULT_BUCKET || true;
       mc anonymous set none local/$$MINIO_DEFAULT_BUCKET || true;
       "
+    networks:
+      - ss_poc_shared
 
   redis:
     image: redis:7-alpine
-    container_name: ss-tms-cache-redis
+    container_name: ss-local-cache-redis
     restart: unless-stopped
     profiles: ["core"]
     ports:
       - "${REDIS_PORT}:6379"
     volumes:
-      - ss_tms_redis_data:/data
+      - ss_poc_redis_data:/data
+    networks:
+      - ss_poc_shared
 
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: ss-tms-mb-rabbitmq
+    container_name: ss-local-mb-rabbitmq
     restart: unless-stopped
     profiles: ["broker"]
     environment:
@@ -91,31 +100,37 @@ services:
       - "${RABBITMQ_PORT}:5672"
       - "${RABBITMQ_MGMT_PORT}:15672"
     volumes:
-      - ss_tms_rabbitmq_data:/var/lib/rabbitmq
+      - ss_poc_rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ss_poc_shared
 
   jaeger:
     image: jaegertracing/all-in-one:1.57
-    container_name: ss-tms-trace-jaeger
+    container_name: ss-local-trace-jaeger
     restart: unless-stopped
     profiles: ["obs"]
     ports:
       - "${JAEGER_PORT}:16686"
       - "14250:14250"
+    networks:
+      - ss_poc_shared
 
   prometheus:
     image: prom/prometheus:v2.51.2
-    container_name: ss-tms-mon-prometheus
+    container_name: ss-local-mon-prometheus
     restart: unless-stopped
     profiles: ["obs"]
     ports:
       - "${PROMETHEUS_PORT}:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ss_tms_prometheus_data:/prometheus
+      - ss_poc_prometheus_data:/prometheus
+    networks:
+      - ss_poc_shared
 
   grafana:
     image: grafana/grafana:10.4.2
-    container_name: ss-tms-mon-grafana
+    container_name: ss-local-mon-grafana
     restart: unless-stopped
     profiles: ["obs"]
     environment:
@@ -124,49 +139,71 @@ services:
     ports:
       - "${GRAFANA_PORT}:3000"
     volumes:
-      - ss_tms_grafana_data:/var/lib/grafana
+      - ss_poc_grafana_data:/var/lib/grafana
+    networks:
+      - ss_poc_shared
 
   traefik:
     image: traefik:v3.0
-    container_name: ss-tms-proxy-traefik
+    container_name: ss-local-proxy-traefik
     restart: unless-stopped
     profiles: ["gateway"]
     command:
       - --api.dashboard=true
       - --api.insecure=true
       - --entrypoints.web.address=:80
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
     ports:
       - "${TRAEFIK_HTTP_PORT}:80"
       - "${TRAEFIK_DASHBOARD_PORT}:8080"
+    volumes:
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+    networks:
+      - ss_poc_shared
 
   mailpit:
     image: axllent/mailpit:latest
-    container_name: ss-tms-mail-mailpit
+    container_name: ss-local-mail-mailpit
     restart: unless-stopped
     profiles: ["mail"]
     ports:
       - "${MAILPIT_SMTP_PORT}:1025"
       - "${MAILPIT_UI_PORT}:8025"
+    networks:
+      - ss_poc_shared
 
   vault:
     image: hashicorp/vault:1.16
-    container_name: ss-tms-sec-vault
+    container_name: ss-local-sec-vault
     restart: unless-stopped
     profiles: ["secrets"]
     cap_add:
       - IPC_LOCK
-    environment:
-      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN_ID}
-      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
     ports:
       - "${VAULT_PORT}:8200"
-    command: vault server -dev
+    environment:
+      VAULT_ADDR: http://0.0.0.0:8200
+    command: vault server -config=/vault/config/vault.hcl
+    volumes:
+      - ./vault/config:/vault/config:ro
+      - ss_poc_vault_data:/vault/file
+      - ss_poc_vault_logs:/vault/logs
+    networks:
+      - ss_poc_shared
 
 volumes:
-  ss_tms_pg_data:
-  ss_tms_mongo_data:
-  ss_tms_minio_data:
-  ss_tms_redis_data:
-  ss_tms_rabbitmq_data:
-  ss_tms_prometheus_data:
-  ss_tms_grafana_data:
+  ss_poc_pg_data:
+  ss_poc_mongo_data:
+  ss_poc_minio_data:
+  ss_poc_redis_data:
+  ss_poc_rabbitmq_data:
+  ss_poc_prometheus_data:
+  ss_poc_grafana_data:
+  ss_poc_vault_data:
+  ss_poc_vault_logs:
+
+networks:
+  ss_poc_shared:
+    name: ss_poc_shared
+    driver: bridge
