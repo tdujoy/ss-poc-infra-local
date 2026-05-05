@@ -21,6 +21,7 @@ riderModule.iml
 **/bin
 **/charts
 **/docker-compose*
+!ss-poc-local-infra/docker-compose.yml
 **/Dockerfile*
 **/node_modules
 **/npm-debug.log

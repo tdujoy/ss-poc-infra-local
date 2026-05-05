@@ -1,0 +1,226 @@
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  networks:
+    - ss_poc_shared
+
+services:
+  postgres:
+    <<: *service-defaults
+    image: postgres:16.4
+    container_name: ss-local-db-postgres
+    profiles: ["core"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - ss_poc_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    <<: *service-defaults
+    image: mongo:7.0.14
+    container_name: ss-local-db-mongo
+    profiles: ["core"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    ports:
+      - "${MONGO_PORT}:27017"
+    volumes:
+      - ss_poc_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    <<: *service-defaults
+    image: redis:7.2.5-alpine
+    container_name: ss-local-cache-redis
+    profiles: ["core"]
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - ss_poc_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  garage:
+    <<: *service-defaults
+    image: dxflrs/garage:v1.0.1
+    container_name: ss-local-os-garage
+    profiles: ["core"]
+    environment:
+      GARAGE_CONFIG_FILE: /etc/garage.toml
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET}
+    command: ["server"]
+    ports:
+      - "${GARAGE_S3_PORT}:3900"
+      - "${GARAGE_ADMIN_PORT}:3903"
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+      - ss_poc_garage_meta:/var/lib/garage/meta
+      - ss_poc_garage_data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3903/v1/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  rabbitmq:
+    <<: *service-defaults
+    image: rabbitmq:3.13.7-management
+    container_name: ss-local-mb-rabbitmq
+    profiles: ["broker"]
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_MGMT_PORT}:15672"
+    volumes:
+      - ss_poc_rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  mailpit:
+    <<: *service-defaults
+    image: axllent/mailpit:v1.21.8
+    container_name: ss-local-mail-mailpit
+    profiles: ["mail"]
+    ports:
+      - "${MAILPIT_SMTP_PORT}:1025"
+      - "${MAILPIT_UI_PORT}:8025"
+
+  seq:
+    <<: *service-defaults
+    image: datalust/seq:2024.3
+    container_name: ss-local-log-seq
+    profiles: ["obs"]
+    environment:
+      ACCEPT_EULA: "Y"
+    ports:
+      - "${SEQ_PORT}:80"
+      - "${SEQ_INGEST_PORT}:5341"
+    volumes:
+      - ss_poc_seq_data:/data
+
+  jaeger:
+    <<: *service-defaults
+    image: jaegertracing/all-in-one:1.57
+    container_name: ss-local-trace-jaeger
+    profiles: ["obs"]
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "${JAEGER_UI_PORT}:16686"
+      - "${JAEGER_OTLP_GRPC_PORT}:4317"
+      - "${JAEGER_OTLP_HTTP_PORT}:4318"
+
+  prometheus:
+    <<: *service-defaults
+    image: prom/prometheus:v2.51.2
+    container_name: ss-local-mon-prometheus
+    profiles: ["obs"]
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ss_poc_prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    <<: *service-defaults
+    image: grafana/grafana:10.4.2
+    container_name: ss-local-mon-grafana
+    profiles: ["obs"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    ports:
+      - "${GRAFANA_PORT}:3000"
+    volumes:
+      - ss_poc_grafana_data:/var/lib/grafana
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Persistent local Vault using file storage. This keeps secrets across restarts,
+  # but it is still a single-node local POC setup, not production HA Vault.
+  vault:
+    <<: *service-defaults
+    image: hashicorp/vault:1.16
+    container_name: ss-local-sec-vault
+    profiles: ["secrets"]
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: http://0.0.0.0:8200
+    command: vault server -config=/vault/config/vault.hcl
+    ports:
+      - "${VAULT_PORT}:8200"
+    volumes:
+      - ./vault/config/vault.hcl:/vault/config/vault.hcl:ro
+      - ss_poc_vault_data:/vault/file
+      - ss_poc_vault_logs:/vault/logs
+
+  portainer:
+    <<: *service-defaults
+    image: portainer/portainer-ce:2.20.3
+    container_name: ss-local-tools-portainer
+    profiles: ["tools"]
+    ports:
+      - "${PORTAINER_PORT}:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ss_poc_portainer_data:/data
+
+  # Example for future app services:
+  # some-api:
+  #   image: your-api-image
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+
+volumes:
+  ss_poc_pg_data:
+  ss_poc_mongo_data:
+  ss_poc_redis_data:
+  ss_poc_garage_meta:
+  ss_poc_garage_data:
+  ss_poc_rabbitmq_data:
+  ss_poc_seq_data:
+  ss_poc_prometheus_data:
+  ss_poc_grafana_data:
+  ss_poc_vault_data:
+  ss_poc_vault_logs:
+  ss_poc_portainer_data:
+
+networks:
+  ss_poc_shared:
+    name: ss_poc_shared
+    driver: bridge
