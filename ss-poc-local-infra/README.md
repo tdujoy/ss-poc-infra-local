@@ -58,6 +58,12 @@ The fastest full local setup is:
 ./scripts/up.sh
 ```
 
+On Windows PowerShell:
+
+```powershell
+.\scripts\up.ps1
+```
+
 This starts all profiles, configures Garage, initializes or unseals Vault, and waits for service healthchecks.
 
 Validate the Compose file:
@@ -84,6 +90,12 @@ Start and verify everything:
 
 ```bash
 ./scripts/up.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\up.ps1
 ```
 
 Start core dependencies:
@@ -133,6 +145,12 @@ Wait for healthchecks:
 
 ```bash
 ./scripts/health.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\health.ps1
 ```
 
 Reset all local data:
@@ -258,6 +276,12 @@ Configure the single-node local layout, default bucket, and default app key:
 ./scripts/setup-garage.sh
 ```
 
+Windows PowerShell:
+
+```powershell
+.\scripts\setup-garage.ps1
+```
+
 Check status:
 
 ```bash
@@ -295,12 +319,24 @@ Initialize Vault after first startup:
 ./scripts/unseal-vault.sh
 ```
 
+Windows PowerShell:
+
+```powershell
+.\scripts\unseal-vault.ps1
+```
+
 The script initializes Vault if needed with one local unseal key, writes the generated init material to `vault/.vault-init.json`, and unseals Vault. That file is ignored by git and should stay local/private.
 
 Unseal Vault after Docker or the Vault container restarts:
 
 ```bash
 ./scripts/unseal-vault.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\unseal-vault.ps1
 ```
 
 Log in:
@@ -373,9 +409,13 @@ depends_on:
 | `traefik/examples/ocelot-gateway.yaml` | Example file-provider route for an Ocelot gateway |
 | `vault/config/vault.hcl` | Persistent local Vault config |
 | `scripts/up.sh` | Start all profiles, configure Garage, unseal Vault, and wait for health |
+| `scripts/up.ps1` | PowerShell equivalent of `scripts/up.sh` |
 | `scripts/setup-garage.sh` | Configure Garage layout, bucket, and app key |
+| `scripts/setup-garage.ps1` | PowerShell equivalent of `scripts/setup-garage.sh` |
 | `scripts/unseal-vault.sh` | Initialize or unseal local Vault from ignored init material |
+| `scripts/unseal-vault.ps1` | PowerShell equivalent of `scripts/unseal-vault.sh` |
 | `scripts/health.sh` | Wait for all Compose healthchecks |
+| `scripts/health.ps1` | PowerShell equivalent of `scripts/health.sh` |
 
 ## Troubleshooting
 
@@ -383,4 +423,10 @@ If Docker Desktop reports healthcheck timeouts like `timed out starting health c
 
 ```bash
 ./scripts/up.sh
+```
+
+On Windows PowerShell:
+
+```powershell
+.\scripts\up.ps1
 ```
