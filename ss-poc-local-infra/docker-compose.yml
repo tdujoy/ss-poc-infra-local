@@ -24,6 +24,31 @@ x-resources:
     mem_reservation: 384m
 
 services:
+  traefik:
+    <<: [*service-defaults, *resources-small]
+    image: traefik:v3.3.3
+    container_name: st-local-edge-traefik
+    profiles: ["edge"]
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.traefik.address=:8080
+      - --ping=true
+      - --ping.entrypoint=traefik
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+    ports:
+      - "${TRAEFIK_WEB_PORT}:80"
+      - "${TRAEFIK_DASHBOARD_PORT}:8080"
+    volumes:
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   postgres:
     <<: [*service-defaults, *resources-medium]
     image: postgres:16.4

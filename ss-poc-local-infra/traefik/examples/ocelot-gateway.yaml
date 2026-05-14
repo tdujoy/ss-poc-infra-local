@@ -1,0 +1,26 @@
+# Example file-provider route for an Ocelot gateway container attached to
+# st_poc_shared.
+#
+# To enable it, copy this file to:
+#
+#   traefik/dynamic/ocelot-gateway.yaml
+#
+# Then ensure your Ocelot gateway container is reachable as:
+#
+#   http://ocelot-gateway:8080
+#
+# Add more servers under loadBalancer.servers when you run multiple gateway
+# instances with stable names.
+http:
+  routers:
+    ocelot-gateway:
+      rule: Host(`gateway.localhost`) || Host(`api.localhost`)
+      entryPoints:
+        - web
+      service: ocelot-gateway
+
+  services:
+    ocelot-gateway:
+      loadBalancer:
+        servers:
+          - url: http://ocelot-gateway:8080

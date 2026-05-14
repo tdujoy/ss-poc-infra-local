@@ -1,0 +1,24 @@
+http:
+  routers:
+    app-local:
+      rule: Host(`app.local`) || Host(`app.localhost`)
+      entryPoints:
+        - web
+      service: garage-webui
+
+    auth-local:
+      rule: Host(`auth.local`) || Host(`auh.local`) || Host(`auth.localhost`)
+      entryPoints:
+        - web
+      service: vault
+
+  services:
+    garage-webui:
+      loadBalancer:
+        servers:
+          - url: http://garage-webui:3909
+
+    vault:
+      loadBalancer:
+        servers:
+          - url: http://vault:8200

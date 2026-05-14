@@ -11,7 +11,7 @@ if [ -f .env ]; then
   set +a
 fi
 
-PROFILES="--profile core --profile broker --profile mail --profile obs --profile secrets --profile tools"
+PROFILES="--profile edge --profile core --profile broker --profile mail --profile obs --profile secrets --profile tools"
 
 compose() {
   docker compose "$@"

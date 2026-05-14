@@ -8,6 +8,7 @@ This stack is for local development only. It gives service repos shared dependen
 
 | Profile | Services |
 | --- | --- |
+| `edge` | Traefik reverse proxy and local load balancer |
 | `core` | Postgres, MongoDB, Redis, Garage, Garage Web UI |
 | `broker` | RabbitMQ with management UI |
 | `mail` | Mailpit |
@@ -23,6 +24,7 @@ The stack includes explicit local CPU and memory caps so one service does not co
 
 | Service | CPU limit | Memory limit | Memory reservation |
 | --- | ---: | ---: | ---: |
+| Traefik | `0.50` | `512m` | `128m` |
 | Postgres | `0.75` | `768m` | `256m` |
 | MongoDB | `1.00` | `1g` | `384m` |
 | Redis | `0.25` | `128m` | `64m` |
@@ -67,7 +69,7 @@ docker compose config
 Validate every profiled service:
 
 ```bash
-COMPOSE_PROFILES=core,broker,mail,obs,secrets,tools docker compose config
+COMPOSE_PROFILES=edge,core,broker,mail,obs,secrets,tools docker compose config
 ```
 
 ## Common Commands
@@ -94,6 +96,7 @@ Start everything:
 
 ```bash
 docker compose \
+  --profile edge \
   --profile core \
   --profile broker \
   --profile mail \
@@ -106,6 +109,7 @@ docker compose \
 Start one profile:
 
 ```bash
+docker compose --profile edge up -d
 docker compose --profile obs up -d
 docker compose --profile broker up -d
 docker compose --profile secrets up -d
@@ -145,6 +149,10 @@ Defaults below assume the values from `.env.example`.
 
 | Service | URL |
 | --- | --- |
+| Traefik reverse proxy | `http://localhost:8088` |
+| Traefik dashboard | `http://localhost:8081/dashboard/` |
+| App route via Traefik | `http://app.local:8088` |
+| Auth route via Traefik | `http://auth.local:8088` |
 | Garage S3 API | `http://localhost:3900` |
 | Garage Admin API | `http://localhost:3903` |
 | Garage Health | `http://localhost:3903/health` |
@@ -164,6 +172,7 @@ Use `localhost` from your host machine and Docker service names from app contain
 
 | Dependency | Host machine | From another container |
 | --- | --- | --- |
+| Traefik web entrypoint | `http://localhost:${TRAEFIK_WEB_PORT}` | `http://traefik` |
 | Postgres | `localhost:${POSTGRES_PORT}` | `postgres:5432` |
 | MongoDB | `localhost:${MONGO_PORT}` | `mongo:27017` |
 | Redis | `localhost:${REDIS_PORT}` | `redis:6379` |
@@ -176,6 +185,56 @@ Use `localhost` from your host machine and Docker service names from app contain
 | OTLP gRPC | `localhost:${JAEGER_OTLP_GRPC_PORT}` | `jaeger:4317` |
 | OTLP HTTP | `http://localhost:${JAEGER_OTLP_HTTP_PORT}` | `http://jaeger:4318` |
 | Vault | `http://localhost:${VAULT_PORT}` | `http://vault:8200` |
+
+## Edge Proxy
+
+The `edge` profile starts Traefik as the local reverse proxy and load balancer. It listens on `TRAEFIK_WEB_PORT` for app traffic and `TRAEFIK_DASHBOARD_PORT` for the local dashboard.
+
+Start it:
+
+```bash
+docker compose --profile edge up -d traefik
+```
+
+Preconfigured local routes:
+
+| Host | Target |
+| --- | --- |
+| `app.local`, `app.localhost` | Garage Web UI at `garage-webui:3909` |
+| `auth.local`, `auh.local`, `auth.localhost` | Vault at `vault:8200` |
+
+These are defined in `traefik/dynamic/local-routes.yaml`. Replace the targets when your real app and auth services are available.
+
+Traefik uses the file provider in `traefik/dynamic`. This avoids mounting the Docker socket into the proxy and keeps routing explicit.
+
+To route to an Ocelot gateway, copy the example route:
+
+```bash
+cp traefik/examples/ocelot-gateway.yaml traefik/dynamic/ocelot-gateway.yaml
+```
+
+Then run the Ocelot gateway container on `st_poc_shared` with the network alias `ocelot-gateway`, or update the server URL in the dynamic route:
+
+```yaml
+services:
+  ocelot-gateway:
+    image: your-ocelot-gateway-image
+    networks:
+      st_poc_shared:
+        aliases:
+          - ocelot-gateway
+```
+
+For multiple stable gateway instances, add more servers under `loadBalancer.servers` in `traefik/dynamic/ocelot-gateway.yaml`:
+
+```yaml
+services:
+  ocelot-gateway:
+    loadBalancer:
+      servers:
+        - url: http://ocelot-gateway-a:8080
+        - url: http://ocelot-gateway-b:8080
+```
 
 ## Garage
 
@@ -310,6 +369,8 @@ depends_on:
 | `.env.example` | Required environment variables and default local values |
 | `garage/garage.toml` | Garage local config |
 | `prometheus/prometheus.yml` | Prometheus local scrape config |
+| `traefik/dynamic/local-routes.yaml` | Preconfigured local Traefik routes |
+| `traefik/examples/ocelot-gateway.yaml` | Example file-provider route for an Ocelot gateway |
 | `vault/config/vault.hcl` | Persistent local Vault config |
 | `scripts/up.sh` | Start all profiles, configure Garage, unseal Vault, and wait for health |
 | `scripts/setup-garage.sh` | Configure Garage layout, bucket, and app key |
