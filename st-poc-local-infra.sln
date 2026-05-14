@@ -28,6 +28,15 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Vault", "Vault", "{E27D09D6
 		ss-poc-local-infra\vault\config\vault.hcl = ss-poc-local-infra\vault\config\vault.hcl
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Scripts", "Scripts", "{8695158E-D047-4402-A572-BFF157E8097A}"
+	ProjectSection(SolutionItems) = preProject
+		ss-poc-local-infra\scripts\_common.sh = ss-poc-local-infra\scripts\_common.sh
+		ss-poc-local-infra\scripts\health.sh = ss-poc-local-infra\scripts\health.sh
+		ss-poc-local-infra\scripts\setup-garage.sh = ss-poc-local-infra\scripts\setup-garage.sh
+		ss-poc-local-infra\scripts\unseal-vault.sh = ss-poc-local-infra\scripts\unseal-vault.sh
+		ss-poc-local-infra\scripts\up.sh = ss-poc-local-infra\scripts\up.sh
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,5 +51,6 @@ Global
 		{955052BD-F473-4072-A1EF-9E5B65629368} = {70EE5493-7472-4CF2-9E61-9118362E1E3C}
 		{E9DB51CE-6C7C-4D04-A8C4-052C0DFE975E} = {70EE5493-7472-4CF2-9E61-9118362E1E3C}
 		{E27D09D6-B51A-456D-B415-658ABEC86183} = {70EE5493-7472-4CF2-9E61-9118362E1E3C}
+		{8695158E-D047-4402-A572-BFF157E8097A} = {70EE5493-7472-4CF2-9E61-9118362E1E3C}
 	EndGlobalSection
 EndGlobal

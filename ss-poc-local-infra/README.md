@@ -50,6 +50,14 @@ cp .env.example .env
 
 Review `.env` before starting anything. Host ports, credentials, and local configurable values live there.
 
+The fastest full local setup is:
+
+```bash
+./scripts/up.sh
+```
+
+This starts all profiles, configures Garage, initializes or unseals Vault, and waits for service healthchecks.
+
 Validate the Compose file:
 
 ```bash
@@ -68,6 +76,12 @@ If migrating from the previous `ss-*` local stack, stop the old containers first
 
 ```bash
 docker compose -p ss-poc-local-infra down --remove-orphans
+```
+
+Start and verify everything:
+
+```bash
+./scripts/up.sh
 ```
 
 Start core dependencies:
@@ -111,6 +125,12 @@ docker compose logs -f postgres
 docker compose logs -f garage
 ```
 
+Wait for healthchecks:
+
+```bash
+./scripts/health.sh
+```
+
 Reset all local data:
 
 ```bash
@@ -149,6 +169,8 @@ Use `localhost` from your host machine and Docker service names from app contain
 | Redis | `localhost:${REDIS_PORT}` | `redis:6379` |
 | RabbitMQ | `localhost:${RABBITMQ_PORT}` | `rabbitmq:5672` |
 | Garage S3 | `http://localhost:${GARAGE_S3_PORT}` | `http://garage:3900` |
+| Garage bucket | `${GARAGE_BUCKET}` | `${GARAGE_BUCKET}` |
+| Garage region | `garage` | `garage` |
 | Mailpit SMTP | `localhost:${MAILPIT_SMTP_PORT}` | `mailpit:1025` |
 | Seq ingest | `http://localhost:${SEQ_INGEST_PORT}` | `http://seq:5341` |
 | OTLP gRPC | `localhost:${JAEGER_OTLP_GRPC_PORT}` | `jaeger:4317` |
@@ -171,6 +193,12 @@ Start Garage:
 docker compose --profile core up -d garage
 ```
 
+Configure the single-node local layout, default bucket, and default app key:
+
+```bash
+./scripts/setup-garage.sh
+```
+
 Check status:
 
 ```bash
@@ -178,7 +206,9 @@ docker compose logs garage
 docker compose exec garage garage status
 ```
 
-Garage may require one-time local node/layout setup before buckets and S3 keys are usable. After first startup, inspect the logs and status output, then create the local layout, bucket, and access keys needed by your app.
+Garage requires one-time local node/layout setup before buckets and S3 keys are usable. `./scripts/setup-garage.sh` is idempotent for the layout, bucket, and key name in `.env`.
+
+The default bucket is `${GARAGE_BUCKET}`. The generated S3 access key output is written to `garage/.garage-${GARAGE_KEY_NAME}.txt`, which is ignored by git. If the key already exists but that local file is missing, recreate the key or create a new key name; Garage does not show an existing secret key again.
 
 Garage itself does not include a browser UI. The `core` profile starts Garage Web UI at `http://localhost:${GARAGE_WEBUI_PORT}` for local bucket and object management.
 
@@ -203,23 +233,21 @@ docker compose --profile secrets up -d vault
 Initialize Vault after first startup:
 
 ```bash
-docker compose exec vault vault operator init
+./scripts/unseal-vault.sh
 ```
 
-Save the unseal keys and initial root token somewhere local and private. They are not stored in this repo.
+The script initializes Vault if needed with one local unseal key, writes the generated init material to `vault/.vault-init.json`, and unseals Vault. That file is ignored by git and should stay local/private.
 
-Unseal Vault:
+Unseal Vault after Docker or the Vault container restarts:
 
 ```bash
-docker compose exec vault vault operator unseal <unseal-key-1>
-docker compose exec vault vault operator unseal <unseal-key-2>
-docker compose exec vault vault operator unseal <unseal-key-3>
+./scripts/unseal-vault.sh
 ```
 
 Log in:
 
 ```bash
-docker compose exec vault vault login <initial-root-token>
+docker compose exec vault vault login <token-from-vault/.vault-init.json>
 ```
 
 Check status:
@@ -283,3 +311,15 @@ depends_on:
 | `garage/garage.toml` | Garage local config |
 | `prometheus/prometheus.yml` | Prometheus local scrape config |
 | `vault/config/vault.hcl` | Persistent local Vault config |
+| `scripts/up.sh` | Start all profiles, configure Garage, unseal Vault, and wait for health |
+| `scripts/setup-garage.sh` | Configure Garage layout, bucket, and app key |
+| `scripts/unseal-vault.sh` | Initialize or unseal local Vault from ignored init material |
+| `scripts/health.sh` | Wait for all Compose healthchecks |
+
+## Troubleshooting
+
+If Docker Desktop reports healthcheck timeouts like `timed out starting health check` and `docker restart` or `docker kill` cannot stop the affected container, Docker Desktop's VM/container lifecycle is wedged. Restart Docker Desktop, then run:
+
+```bash
+./scripts/up.sh
+```
