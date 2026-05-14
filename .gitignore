@@ -28,3 +28,5 @@ riderModule.iml
 **/obj
 **/secrets.dev.yaml
 **/values.dev.yaml
+**/.vault-init.json
+**/.garage-*.txt

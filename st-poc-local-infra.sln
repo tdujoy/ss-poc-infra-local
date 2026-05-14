@@ -1,0 +1,46 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{E28B4E26-5AF3-4B69-8AE6-6E57E4F58FC6}"
+	ProjectSection(SolutionItems) = preProject
+		.dockerignore = .dockerignore
+		.gitignore = .gitignore
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Local Infra", "Local Infra", "{70EE5493-7472-4CF2-9E61-9118362E1E3C}"
+	ProjectSection(SolutionItems) = preProject
+		ss-poc-local-infra\.env.example = ss-poc-local-infra\.env.example
+		ss-poc-local-infra\README.md = ss-poc-local-infra\README.md
+		ss-poc-local-infra\docker-compose.yml = ss-poc-local-infra\docker-compose.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Garage", "Garage", "{955052BD-F473-4072-A1EF-9E5B65629368}"
+	ProjectSection(SolutionItems) = preProject
+		ss-poc-local-infra\garage\garage.toml = ss-poc-local-infra\garage\garage.toml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Prometheus", "Prometheus", "{E9DB51CE-6C7C-4D04-A8C4-052C0DFE975E}"
+	ProjectSection(SolutionItems) = preProject
+		ss-poc-local-infra\prometheus\prometheus.yml = ss-poc-local-infra\prometheus\prometheus.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Vault", "Vault", "{E27D09D6-B51A-456D-B415-658ABEC86183}"
+	ProjectSection(SolutionItems) = preProject
+		ss-poc-local-infra\vault\config\vault.hcl = ss-poc-local-infra\vault\config\vault.hcl
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{955052BD-F473-4072-A1EF-9E5B65629368} = {70EE5493-7472-4CF2-9E61-9118362E1E3C}
+		{E9DB51CE-6C7C-4D04-A8C4-052C0DFE975E} = {70EE5493-7472-4CF2-9E61-9118362E1E3C}
+		{E27D09D6-B51A-456D-B415-658ABEC86183} = {70EE5493-7472-4CF2-9E61-9118362E1E3C}
+	EndGlobalSection
+EndGlobal

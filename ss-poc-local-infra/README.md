@@ -1,6 +1,6 @@
-# ss-poc-local-infra
+# st-poc-local-infra
 
-Local Docker infrastructure for the **ss-poc** .NET microservices POC.
+Local Docker infrastructure for the **st-poc** .NET microservices POC.
 
 This stack is for local development only. It gives service repos shared dependencies and developer tools without adding Kubernetes, cloud deployment files, or production assumptions.
 
@@ -8,21 +8,43 @@ This stack is for local development only. It gives service repos shared dependen
 
 | Profile | Services |
 | --- | --- |
-| `core` | Postgres, MongoDB, Redis, Garage |
+| `core` | Postgres, MongoDB, Redis, Garage, Garage Web UI |
 | `broker` | RabbitMQ with management UI |
 | `mail` | Mailpit |
 | `obs` | Seq, Jaeger, Prometheus, Grafana |
 | `secrets` | Vault |
 | `tools` | Portainer |
 
-All services use the shared Docker network `ss_poc_shared`. Persistent services use named Docker volumes.
+All services use the shared Docker network `st_poc_shared`. Persistent services use named Docker volumes with the `st_poc_` prefix.
+
+## Resource Limits
+
+The stack includes explicit local CPU and memory caps so one service does not consume the whole Docker Desktop VM. These are development limits, not sizing guidance for production.
+
+| Service | CPU limit | Memory limit | Memory reservation |
+| --- | ---: | ---: | ---: |
+| Postgres | `0.75` | `768m` | `256m` |
+| MongoDB | `1.00` | `1g` | `384m` |
+| Redis | `0.25` | `128m` | `64m` |
+| Garage | `0.50` | `512m` | `128m` |
+| RabbitMQ | `0.75` | `768m` | `256m` |
+| Mailpit | `0.25` | `128m` | `64m` |
+| Seq | `0.75` | `768m` | `256m` |
+| Jaeger | `0.50` | `512m` | `128m` |
+| Prometheus | `0.50` | `512m` | `128m` |
+| Grafana | `0.50` | `512m` | `128m` |
+| Vault | `0.50` | `512m` | `128m` |
+| Portainer | `0.50` | `512m` | `128m` |
+| Garage Web UI | `0.50` | `512m` | `128m` |
+
+Adjust these in `docker-compose.yml` under the `x-resources` anchors if Docker Desktop is under memory pressure.
 
 ## First Setup
 
 Run commands from this directory:
 
 ```bash
-cd ss-poc-local-infra
+cd /path/to/st-poc-local-infra
 cp .env.example .env
 ```
 
@@ -41,6 +63,12 @@ COMPOSE_PROFILES=core,broker,mail,obs,secrets,tools docker compose config
 ```
 
 ## Common Commands
+
+If migrating from the previous `ss-*` local stack, stop the old containers first so the renamed `st-*` containers can bind the same ports:
+
+```bash
+docker compose -p ss-poc-local-infra down --remove-orphans
+```
 
 Start core dependencies:
 
@@ -99,6 +127,7 @@ Defaults below assume the values from `.env.example`.
 | --- | --- |
 | Garage S3 API | `http://localhost:3900` |
 | Garage Admin API | `http://localhost:3903` |
+| Garage Health | `http://localhost:3903/health` |
 | RabbitMQ Management | `http://localhost:15672` |
 | Mailpit | `http://localhost:8025` |
 | Seq | `http://localhost:5340` |
@@ -106,7 +135,8 @@ Defaults below assume the values from `.env.example`.
 | Prometheus | `http://localhost:9090` |
 | Grafana | `http://localhost:3000` |
 | Vault | `http://localhost:8200` |
-| Portainer | `http://localhost:9000` |
+| Garage Web UI | `http://localhost:3909` |
+| Portainer | `http://localhost:9002` |
 
 ## App Connection Values
 
@@ -132,8 +162,8 @@ Garage replaces MinIO as the local S3-compatible object store.
 Compose mounts:
 
 - Config: `./garage/garage.toml:/etc/garage.toml:ro`
-- Metadata: `ss_poc_garage_meta:/var/lib/garage/meta`
-- Data: `ss_poc_garage_data:/var/lib/garage/data`
+- Metadata: `st_poc_garage_meta:/var/lib/garage/meta`
+- Data: `st_poc_garage_data:/var/lib/garage/data`
 
 Start Garage:
 
@@ -150,6 +180,8 @@ docker compose exec garage garage status
 
 Garage may require one-time local node/layout setup before buckets and S3 keys are usable. After first startup, inspect the logs and status output, then create the local layout, bucket, and access keys needed by your app.
 
+Garage itself does not include a browser UI. The `core` profile starts Garage Web UI at `http://localhost:${GARAGE_WEBUI_PORT}` for local bucket and object management.
+
 ## Vault
 
 Vault runs with persistent local file storage, not dev mode.
@@ -157,8 +189,8 @@ Vault runs with persistent local file storage, not dev mode.
 Compose mounts:
 
 - Config: `./vault/config/vault.hcl:/vault/config/vault.hcl:ro`
-- Data: `ss_poc_vault_data:/vault/file`
-- Logs: `ss_poc_vault_logs:/vault/logs`
+- Data: `st_poc_vault_data:/vault/file`
+- Logs: `st_poc_vault_logs:/vault/logs`
 
 This keeps Vault data across container restarts. It is still a single-node local POC Vault, not production HA Vault.
 
